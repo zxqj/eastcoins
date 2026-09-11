@@ -24,6 +24,9 @@
     chatToggle: document.getElementById("chatToggle"),
     chatClose: document.getElementById("chatClose"),
     chatPopout: document.getElementById("chatPopout"),
+    chatWindowCard: document.getElementById("chatWindowCard"),
+    chatWindowOpen: document.getElementById("chatWindowOpen"),
+    chatWindowEmbed: document.getElementById("chatWindowEmbed"),
     loginBtn: document.getElementById("loginBtn"),
     walletChip: document.getElementById("walletChip"),
     walletValue: document.getElementById("walletValue"),
@@ -357,6 +360,8 @@
   }
 
   function mountChat() {
+    // Chat in its own window (⋯ menu): the embed is never loaded at all.
+    if (prefs.chatWindow) return;
     if (chatMounted) return;
     chatMounted = true;
     chatMountedAt = Date.now();
@@ -427,7 +432,7 @@
   /* ---------------------------------------------------------- settings */
 
   const PREF_KEY = "eastcoinV3Prefs";
-  const prefs = { chat: true, topnav: true, art: true, scores: true };
+  const prefs = { chat: true, chatWindow: false, topnav: true, art: true, scores: true };
 
   function loadPrefs() {
     try {
@@ -480,6 +485,12 @@
     prefs[key] = !prefs[key];
 
     if (key === "chat") setChatVisible(prefs.chat);
+    if (key === "chatWindow") {
+      setChatWindowMode(prefs.chatWindow);
+      // A click is the one moment a browser lets a page open a window, so
+      // switching it on opens chat now; later page loads offer a button.
+      if (prefs.chatWindow) openChatWindow();
+    }
     savePrefs();
     applyPrefs();
     if (key === "art" || key === "scores") views.events?.onPrefs?.(prefs);
@@ -545,6 +556,116 @@
     }
   }
 
+  /* ---------------------------------------------------------- login
+
+     Logging in happens in a popup, and this tab never navigates.
+
+     It used to be a plain link: the whole shell left for Twitch and came
+     back. That holds only while the page is able to leave. A browser
+     extension that wedges the embedded chat — 7TV's beta ("next") build
+     does, pinning the chat's process in an endless retry loop — stalls
+     every navigation of the tab that holds it, and the site simply froze
+     on the Login button. A popup in a browsing context group of its own
+     (see startLogin) has nothing in this tab to wait on. When it reports back the session is read again in
+     place rather than by reloading, because a reload is the very
+     navigation that would hang.
+
+     Every login link on the site starts with AUTH_START, so one listener
+     covers the header and every view's "Log in with Twitch" card. A
+     blocked popup falls back to the link doing what it always did. */
+
+  const AUTH_START = "/api/picks/auth/twitch/start";
+  const AUTH_CHANNEL = "eastcoin-picks-auth";
+  const AUTH_MESSAGE = "eastcoin:picks-auth-complete";
+  // Views that draw differently for whoever is logged in. Each re-reads
+  // the session when it mounts, so re-rendering one is all it takes. The
+  // rest — a stream mid-play, the Green Room — are left exactly as they are.
+  const SESSION_VIEWS = new Set(["picks", "casino", "flip", "wheel", "race", "hilo", "game", "profile", "screen", "admin", "dashboard"]);
+
+  // Set while a login popup is out. If its message never arrives, coming
+  // back to this tab is the moment to look — once, cheaply — whether the
+  // login went through anyway. An abandoned login stops counting after the
+  // same ten minutes the server gives its OAuth state.
+  const LOGIN_PENDING_MS = 10 * 60 * 1000;
+  let loginStartedAt = 0;
+  let sessionRefresh = null;
+  let lastAuthRefreshAt = 0;
+
+  function loginPending() {
+    return loginStartedAt > 0 && Date.now() - loginStartedAt < LOGIN_PENDING_MS;
+  }
+
+  // The popup can signal twice (BroadcastChannel, and postMessage where the
+  // opener survives) and coming back to the tab triggers a look of its own,
+  // so repeats inside a few seconds collapse into the one refresh done.
+  function refreshAfterLogin() {
+    if (sessionRefresh) return sessionRefresh;
+    if (Date.now() - lastAuthRefreshAt < 3000) return Promise.resolve();
+    sessionRefresh = loadSession()
+      .then(() => {
+        if (!state.session?.user) return;
+        loginStartedAt = 0;
+        lastAuthRefreshAt = Date.now();
+        if (SESSION_VIEWS.has(state.route)) render();
+      })
+      .finally(() => { sessionRefresh = null; });
+    return sessionRefresh;
+  }
+
+  function onAuthMessage(data) {
+    if (!data || data.type !== AUTH_MESSAGE) return;
+    loginStartedAt = 0;
+    // Denied or failed: the popup already says so, and nothing changed.
+    if (data.status === "success") refreshAfterLogin();
+  }
+
+  // Listened for always, not only while a popup is open: a login finished
+  // in another EastCoin tab updates this one too.
+  try {
+    new BroadcastChannel(AUTH_CHANNEL).addEventListener("message", (event) => onAuthMessage(event.data));
+  } catch { /* no BroadcastChannel: the opener message and the focus check remain */ }
+  window.addEventListener("message", (event) => {
+    if (event.origin === location.origin) onAuthMessage(event.data);
+  });
+  window.addEventListener("focus", () => {
+    if (loginPending()) refreshAfterLogin();
+  });
+
+  function startLogin(href) {
+    const url = new URL(href, location.origin);
+    url.searchParams.set("returnTo", "/auth-complete.html");
+
+    let popup = null;
+    try {
+      // Not "noopener": that makes window.open return null even when the
+      // window opened, so a blocked popup could no longer be told apart
+      // from one that worked (see openChatWindow). The handle is only for
+      // that check — it does not keep the popup tied to this tab. The start
+      // endpoint answers with Cross-Origin-Opener-Policy, which moves the
+      // popup into a browsing context group of its own as it redirects.
+      // That matters more than it sounds: same-site documents in one group
+      // share a process, and a popup still grouped with this tab put
+      // Twitch's login page in the very process a wedged chat embed was
+      // pinning, where it never loaded. It also means the handle reads
+      // closed a moment later, which is why nothing here polls it.
+      popup = window.open(url.pathname + url.search, "ecTwitchLogin", "width=520,height=760");
+    } catch {
+      popup = null;
+    }
+    if (!popup || popup.closed) return false;
+
+    popup.focus?.();
+    loginStartedAt = Date.now();
+    return true;
+  }
+
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    const link = event.target.closest?.(`a[href^="${AUTH_START}"]`);
+    if (!link) return;
+    if (startLogin(link.getAttribute("href"))) event.preventDefault();
+  });
+
   /* ---------------------------------------------------------- wiring */
 
   for (const link of els.navLinks) {
@@ -583,6 +704,7 @@
   // For when it has gone sluggish and they would rather not wait for the
   // watchdog. Also the honest answer to "chat is being weird".
   els.chatReload?.addEventListener("click", () => {
+    if (prefs.chatWindow) return openChatWindow();
     if (chatMounted) recycleChat();
     else mountChat();
   });
@@ -599,13 +721,15 @@
   // overlaps it. Neither protection applies on twitch.tv itself, and
   // neither is something this site can switch off — they exist precisely
   // so an embedding page cannot.
-  els.chatPopout?.addEventListener("click", () => {
-    const frame = document.getElementById("twitchChat");
+  function chatChannel() {
     // Read the channel off the embed rather than repeating it here, so
     // there stays exactly one place it is written down.
-    const src = frame?.dataset?.src || frame?.src || "";
-    const channel = /twitch\.tv\/embed\/([^/?]+)\/chat/.exec(src)?.[1] || "zwades";
+    const src = els.chatFrame?.dataset?.src || els.chatFrame?.src || "";
+    return /twitch\.tv\/embed\/([^/?]+)\/chat/.exec(src)?.[1] || "zwades";
+  }
 
+  function openChatWindow() {
+    const channel = chatChannel();
     const url = "https://www.twitch.tv/popout/" + encodeURIComponent(channel) + "/chat?popout=";
 
     // Deliberately WITHOUT noopener in the features string. That flag
@@ -631,11 +755,48 @@
       // appears to do nothing.
       window.open(url, "_blank", "noopener,noreferrer");
     }
+  }
 
+  els.chatPopout?.addEventListener("click", () => {
+    openChatWindow();
+    // Chat set to live in a window has no embed to hide, and the rail's
+    // card is how that window gets opened again.
+    if (prefs.chatWindow) return;
     // Two chats side by side is just noise, and the embedded one is the
     // copy with Twitch's restrictions on it. Hiding it also gives the
-    // width back to whatever is being watched.
+    // width back to whatever is being watched — and the menu's switch has
+    // to hear about it, as it does from the rail's own close button.
     setChatVisible(false);
+    prefs.chat = false;
+    savePrefs();
+    applyPrefs();
+  });
+
+  /* Chat in a separate window, as a setting (⋯ menu).
+
+     For when the embed itself is the problem. Twitch's popout is a real
+     twitch.tv page: the login is simply yours, with no cross-site storage
+     grant to earn, and extensions behave there as they do on Twitch. The
+     one that made this necessary is 7TV's beta build, which wedges the
+     embedded chat — it looks logged out, and the page holding it cannot
+     navigate. With this on the embed is never loaded, so there is nothing
+     for it to wedge.
+
+     Only a click may open a window, so a page load cannot bring chat back
+     on its own; the rail shows a card with the button instead. */
+  function setChatWindowMode(on) {
+    document.body.classList.toggle("chat-window", on);
+    if (els.chatWindowCard) els.chatWindowCard.hidden = !on;
+    if (on) unmountChat();
+    else if (chatVisible()) mountChat();
+  }
+
+  els.chatWindowOpen?.addEventListener("click", openChatWindow);
+  els.chatWindowEmbed?.addEventListener("click", () => {
+    prefs.chatWindow = false;
+    savePrefs();
+    applyPrefs();
+    setChatWindowMode(false);
   });
 
 
@@ -730,6 +891,7 @@
 
   state.route = routeFromUrl();
   loadPrefs();
+  setChatWindowMode(prefs.chatWindow);
   setChatVisible(prefs.chat);
   applyPrefs();
   armChatLoad();

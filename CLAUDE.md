@@ -62,6 +62,24 @@
 > whose menu holds the Twitch chat switch, the floating-player switch
 > (`#musicDock`, still the id `v3-music.js` looks for) and the layout/event
 > preferences. There is no `#chatToggle` any more; the shell guards it.
+> The menu's `data-toggle="chatWindow"` switch (**Chat in a separate
+> window**) keeps the embed from ever mounting: `mountChat()` returns early,
+> the rail shows `#chatWindowCard`, and `openChatWindow()` opens Twitch's
+> popout (only on a click — browsers block it on page load).
+>
+> **Login is a popup, never a navigation.** `v3-shell.js` intercepts every
+> `a[href^="/api/picks/auth/twitch/start"]`, opens it with
+> `returnTo=/auth-complete.html`, and when the `eastcoin-picks-auth`
+> BroadcastChannel reports success it calls `loadSession()` and re-renders
+> only `SESSION_VIEWS` — no reload. The reason: 7TV's beta build
+> (`seventv-next@7tv.app`) wedges the embedded chat's process, and a wedged
+> frame stalls every navigation of the tab holding it, reload included. A
+> blocked popup falls back to the plain link. `auth/twitch/start.js` answers
+> with `Cross-Origin-Opener-Policy: same-origin` so the popup lands in its
+> own browsing context group: a popup still grouped with the tab shares a
+> process with the wedged embed's twitch.tv documents and never loads
+> (verified in Firefox 154). The handle therefore reads `closed` right after
+> the redirect; the shell checks the session on window `focus` instead.
 >
 > **Floating player** — menu switch `#musicDock` toggles `window.ECMusicDock`
 > (in `v3-music.js`): a fixed `.mdock` that hosts the same YouTube player

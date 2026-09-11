@@ -255,6 +255,29 @@ body.chat-hidden .chatrail{display:none}
   color:var(--muted-2);font-size:.82rem;line-height:1.6;
 }
 
+/* Chat in a separate window (⋯ menu). The embed is never loaded; the rail
+   says where chat went and holds the button that opens it, since a page
+   load is not allowed to open a window by itself. */
+body.chat-window .chatrail iframe,
+body.chat-window .chat-placeholder,
+body.chat-window .chatrail-head #chatReload{display:none}
+.chat-window-card{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:24px;text-align:center;color:var(--muted-2);font-size:.82rem;line-height:1.55;
+}
+.chat-window-card strong{color:var(--text);font-size:.92rem}
+.chat-window-open{
+  margin-top:4px;padding:8px 14px;border-radius:9px;
+  border:1px solid rgba(var(--gold-rgb),.42);background:var(--gold-dim);
+  color:var(--gold);font-weight:800;font-size:.82rem;cursor:pointer;
+}
+.chat-window-open:hover{background:rgba(var(--gold-rgb),.24)}
+.chat-window-embed{
+  color:var(--muted-2);font-size:.74rem;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px;
+}
+.chat-window-embed:hover{color:var(--text)}
+
 /* ============================================================
    FILTER BAR
    ============================================================ */

@@ -80,8 +80,8 @@
 <main>
   <div class="mark">T</div>
   <h1 id="title">Finishing Twitch login…</h1>
-  <p id="message">EastCoin is updating your Picks session.</p>
-  <a id="fallback" href="/?view=picks" hidden>Return to Picks</a>
+  <p id="message">EastCoin is updating your session.</p>
+  <a id="fallback" href="/" hidden>Return to EastCoin</a>
 </main>
 
 <script>
@@ -193,8 +193,10 @@
 
   if (status === "success") {
     /*
-      The parent Picks iframe independently verifies /api/picks/bootstrap and
-      reloads the full EastCoin shell. This close is only a convenience.
+      The EastCoin tab that opened this window hears the message and reads
+      the session again in place (v3-shell.js, "login"). It deliberately
+      does not reload: a reload is a navigation, and navigation is what an
+      extension-wedged chat frame stalls. This close is only a convenience.
     */
     window.setTimeout(
       () => {
@@ -206,7 +208,7 @@
           () => {
             fallback.hidden = false;
             message.textContent =
-              "Twitch is connected. If this window did not close automatically, you can close it or return to Picks.";
+              "Twitch is connected. If this window did not close automatically, you can close it or return to EastCoin.";
           },
           500
         );

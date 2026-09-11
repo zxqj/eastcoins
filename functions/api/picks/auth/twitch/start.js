@@ -112,7 +112,14 @@ export async function onRequestGet(context) {
 
   const headers = new Headers({
     Location: twitchUrl.toString(),
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    // The site opens this URL in a popup (v3-shell.js, "login"). COOP on
+    // this redirect moves that popup into a browsing context group of its
+    // own, and so gives Twitch's login page a process of its own. Without
+    // it, a chat embed wedged by an extension (7TV's beta build) shares a
+    // process with the popup's twitch.tv pages, and the login never loads.
+    // Harmless for a plain top-level navigation to this URL.
+    "Cross-Origin-Opener-Policy": "same-origin"
   });
 
   headers.append(

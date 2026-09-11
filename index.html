@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://streamed.st">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;700;800&display=swap">
-<link rel="stylesheet" href="/v3/assets/css/v3.css?v=153">
+<link rel="stylesheet" href="/v3/assets/css/v3.css?v=154">
 </head>
 <body>
 
@@ -46,6 +46,7 @@
       <button class="iconbtn dots" id="settingsBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Chat, music and settings" aria-label="Menu">⋯</button>
       <div class="menu" id="settingsMenu" role="menu" hidden>
         <button class="menu-item" type="button" role="menuitemcheckbox" data-toggle="chat"><span>💬&nbsp; Twitch chat</span><span class="switch" data-on="1"></span></button>
+        <button class="menu-item" type="button" role="menuitemcheckbox" data-toggle="chatWindow" title="Open Twitch chat in its own window instead of inside the page. Turn this on if chat looks logged out or the site stalls — some browser extensions break the embedded chat."><span>🪟&nbsp; Chat in a separate window</span><span class="switch" data-on="0"></span></button>
         <button class="menu-item" type="button" role="menuitemcheckbox" id="musicDock" aria-pressed="false" title="Keep the Green Room playing on every page"><span>🎵&nbsp; Floating music player</span><span class="switch" data-on="0"></span></button>
         <button class="menu-item" type="button" role="menuitemcheckbox" id="spookyToggle" aria-checked="false" title="Pumpkin, purple, cobwebs and bats. On by itself through October."><span>🎃&nbsp; Spooky theme</span><span class="switch" data-on="0"></span></button>
         <p class="menu-title">Layout</p>
@@ -71,6 +72,12 @@
     <div class="chat-placeholder" id="chatPlaceholder">
       Chat loads as soon as you interact with the page, so it never slows the first paint.
     </div>
+    <div class="chat-window-card" id="chatWindowCard" hidden>
+      <strong>Chat is in its own window</strong>
+      <span>Twitch chat opens as a separate window instead of inside the page. You can change this in the ⋯ menu.</span>
+      <button class="chat-window-open" id="chatWindowOpen" type="button">Open chat window</button>
+      <button class="chat-window-embed" id="chatWindowEmbed" type="button">Show it here instead</button>
+    </div>
     <iframe
       id="twitchChat"
       title="zwades Twitch chat"
@@ -88,7 +95,7 @@
 <script defer src="/assets/eastcoins-ppv-api.js"></script>
 <script defer src="/assets/eastcoins-streamed-api.js"></script>
 <script defer src="/v3/assets/js/v3-sports.js?v=6"></script>
-<script defer src="/v3/assets/js/v3-shell.js?v=65"></script>
+<script defer src="/v3/assets/js/v3-shell.js?v=66"></script>
 <script defer src="/v3/assets/js/v3-presence.js?v=10"></script>
 <script defer src="/v3/assets/js/v3-scores.js?v=5"></script>
 <script defer src="/v3/assets/js/v3-events.js?v=35"></script>
